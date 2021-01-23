@@ -63,6 +63,7 @@ app.get("/:username", (req, res) => {
     );
   });
 });
+
 //Create Posts
 app.post("/post/:uid", (req, res) => {
   pool.getConnection((err, connection) => {
@@ -85,6 +86,7 @@ app.post("/post/:uid", (req, res) => {
     );
   });
 });
+
 //Delete post
 app.delete("/post/:pid", (req, res) => {
   pool.getConnection((err, connection) => {
@@ -106,6 +108,7 @@ app.delete("/post/:pid", (req, res) => {
     );
   });
 });
+
 //Update post
 app.patch("/post/:pid", (req, res) => {
   pool.getConnection((err, connection) => {
@@ -128,21 +131,19 @@ app.patch("/post/:pid", (req, res) => {
     );
   });
 });
+
 //??????????Get all posts?????????
-app.get("/post", (req, res) => {
-  pool.getConnection((err, connection) => {
+app.get("/post",async (req, res) => {
+ let x= await pool.getConnection(async (err, connection) => {
     if (err) throw err;
     console.log(`Connected as id ${connection.threadId}`);
 
-    connection.query("SELECT * FROM post", (err, rows) => {
+    //connection.query("SELECT * FROM `post`", (err, rows) => {
+     let query = await connection.query("SELECT post.content, user.username FROM post join user on post.userid=user.id", (err, rows) => {
       // connection.release();
-
       if (err) throw err;
-      console.log("1");
       console.log(rows);
-      console.log("2");
       res.json(rows);
-      console.log("3");
     });
   });
 });
@@ -153,7 +154,7 @@ app.get("/post/:uid", (req, res) => {
     if (err) throw err;
     console.log(`Connected as id ${connection.threadId}`);
 
-    let query = connection.query(
+    connection.query(
       "SELECT content from post WHERE userid=? ",
       [req.params.uid],
       (err, rows, fields) => {
@@ -195,6 +196,7 @@ app.post("/post/comment/:pid/:uid", (req, res) => {
     );
   });
 });
+
 //Get all comments by a specific user on a specific post
 app.get("/post/comment/:pid/:uid", (req, res) => {
   pool.getConnection((err, connection) => {
@@ -217,6 +219,7 @@ app.get("/post/comment/:pid/:uid", (req, res) => {
     );
   });
 });
+
 //Get all comments on a specific post
 app.get("/post/comment/:pid", (req, res) => {
   pool.getConnection((err, connection) => {
@@ -239,6 +242,7 @@ app.get("/post/comment/:pid", (req, res) => {
     );
   });
 });
+
 //delete a comment
 app.delete("/post/comment/:cid", (req, res) => {
   pool.getConnection((err, connection) => {
