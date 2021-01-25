@@ -2,7 +2,6 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mysql = require("mysql");
 var bcrypt = require("bcrypt");
-
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -15,11 +14,30 @@ const pool = mysql.createPool({
   host: "localhost",
   user: "root",
   password: "",
-  database: "user_post",
+  database: "user_post"
 });
 
+//Base function
+function base(res,query,parameters){
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    console.log(`Connected as id ${connection.threadId}`);
+    connection.query(
+      query,
+      parameters,
+      (err, rows) => {
+        connection.release();
+
+        if (err) console.log(err);
+        console.log(rows);
+        res.json(rows)
+      }
+    );
+  });
+}
+
 //Create user
-app.post("/user", async (req, res, next) => {
+app.post("/user/create", async (req, res, next) => {
   const { username, password } = req.body;
 
   const salt = await bcrypt.genSalt(10);
@@ -28,241 +46,101 @@ app.post("/user", async (req, res, next) => {
     username: username,
     password: hashedPassword,
   };
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-    let query = connection.query(
-      "INSERT INTO user SET ?",
-      data,
-      (err, rows) => {
-        connection.release();
-
-        if (err) console.log(err);
-        console.log(rows);
-        res.json(rows);
-      }
-    );
-  });
+  base(res,
+    "INSERT INTO user SET ?",
+    [data]
+  )
 });
 
 //Get user by username
-app.get("/:username", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-    connection.query(
-      "SELECT * from user WHERE username=?",
-      [req.params.username],
-      (err, rows) => {
-        connection.release(); // return the connection to pool
+app.post("/getuserbyusername", (req, res) => {
 
-        if (err) console.log(err);
-        console.log(rows);
-        res.json(rows);
-      }
-    );
-  });
+  base(res,
+    "SELECT * from user WHERE username=?",
+    [req.body.username]
+  )
 });
 
 //Create Posts
-app.post("/post/:uid", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-    const data = {
-      content: req.body.content,
-      userid: req.params.uid,
-    };
-    let query = connection.query(
-      "INSERT INTO post SET ?",
-      data,
-      (err, rows) => {
-        connection.release();
-
-        if (err) console.log(err);
-        console.log(rows);
-        res.json(rows);
-      }
-    );
-  });
+app.post("/post/create", (req, res) => {
+  const data = {
+    content: req.body.content,
+    userid: req.body.userid,
+  }
+  base(res,
+    "INSERT INTO post SET ?",
+    data
+  )
 });
 
-//Delete post
-app.delete("/post/:pid", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-    const data = {
-      id: req.params.pid,
-    };
-    let query = connection.query(
-      "DELETE post, comment from post inner join comment on post.id=comment.postid WHERE post.id= ?",
-      [req.params.pid],
-      (err, rows) => {
-        connection.release();
-
-        if (err) console.log(err);
-        console.log("delete entry-" + rows);
-        res.json(rows);
-      }
-    );
-  });
+//Delete post????????????????
+app.post("/post/delete",(req, res) => {
+  base(res,
+    "DELETE post, comment from post left join comment on post.id=comment.postid WHERE post.id= ?",
+      [req.body.pid]
+  )
 });
 
 //Update post
-app.patch("/post/:pid", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-    const data = {
-      id: req.params.pid,
-      content: req.body.content,
-    };
-    let query = connection.query(
-      "UPDATE `post` SET `content`=? WHERE `id`=?",
-      [req.body.content, req.params.pid],
-      (err, rows) => {
-        connection.release();
-
-        if (err) console.log(err);
-        console.log("updated entry-" + rows);
-        res.json(rows);
-      }
-    );
-  });
+app.post("/post/update", (req, res) => {
+  base(res,
+    "UPDATE `post` SET content=? WHERE id=?",
+    [req.body.content,req.body.pid]
+  )
 });
 
-//??????????Get all posts?????????
-app.get("/post",async (req, res) => {
- let x= await pool.getConnection(async (err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-
-    //connection.query("SELECT * FROM `post`", (err, rows) => {
-     let query = await connection.query("SELECT post.content, user.username FROM post join user on post.userid=user.id", (err, rows) => {
-      // connection.release();
-      if (err) throw err;
-      console.log(rows);
-      res.json(rows);
-    });
-  });
+//Get all posts
+app.post("/posts/get",(req, res) => {
+  base(res,
+    "SELECT post.*, user.username FROM post join user on post.userid=user.id",
+    []
+  )
 });
 
 //Get all posts of a User
-app.get("/post/:uid", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-
-    connection.query(
-      "SELECT content from post WHERE userid=? ",
-      [req.params.uid],
-      (err, rows, fields) => {
-        connection.release();
-
-        if (err) console.log(err);
-        //iterate for all rows in the rows object
-        Object.keys(rows).forEach((key) => {
-          var row = rows[key];
-          console.log(row.content);
-          // console.log(JSON.stringify(row.content));
-        });
-        res.json(rows);
-      }
-    );
-  });
+app.post("/posts/user/get", (req, res) => {
+  base(res,
+    "SELECT content from post WHERE userid=?",
+    [req.body.uid]
+  )
 });
 
 //Add comment by a User
-app.post("/post/comment/:pid/:uid", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-    const data = {
-      comment: req.body.comment,
-      commenter: req.params.uid,
-      postid: req.params.pid,
-    };
-    let query1 = connection.query(
-      "INSERT into comment SET?",
+app.post("/post/comment/add", (req, res) => {
+  const data = {
+    comment: req.body.comment,
+    commenter: req.body.uid,
+    postid: req.body.pid,
+  };
+  base(res,
+    "INSERT into comment SET?",
       data,
-      (err, rows) => {
-        connection.release();
-
-        if (err) console.log(err);
-        console.log("inserted entry-" + rows);
-        res.json(JSON.stringify(rows));
-      }
-    );
-  });
+  )
 });
 
 //Get all comments by a specific user on a specific post
-app.get("/post/comment/:pid/:uid", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-    const data = {
-      commenter: req.params.uid,
-      postid: req.params.pid,
-    };
-    let query1 = connection.query(
-      "SELECT comment from comment WHERE commenter=? and postid=?",
-      [req.params.uid, req.params.pid],
-      (err, rows) => {
-        connection.release();
-
-        if (err) console.log(err);
-        console.log(rows);
-        res.json(rows);
-      }
-    );
-  });
+app.post("/post/comment/user", (req, res) => {
+  base(res,
+    "SELECT comment from comment WHERE commenter=? and postid=?",
+    [req.body.uid, req.body.pid]
+  )
 });
 
 //Get all comments on a specific post
-app.get("/post/comment/:pid", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-    const data = {
-      commenter: req.params.uid,
-      postid: req.params.pid,
-    };
-    let query1 = connection.query(
-      "SELECT comment from comment WHERE postid=?",
-      [req.params.pid],
-      (err, rows) => {
-        connection.release();
-
-        if (err) console.log(err);
-        console.log(rows);
-        res.json(JSON.stringify(rows));
-      }
-    );
-  });
+app.post("/post/comment/get", (req, res) => {
+  
+  base(res,
+    "SELECT * from comment WHERE postid=?",
+    [req.body.pid]
+  )
 });
 
 //delete a comment
-app.delete("/post/comment/:cid", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    console.log(`Connected as id ${connection.threadId}`);
-    const data = {
-      id: req.params.cid,
-    };
-    let query = connection.query(
-      "DELETE from comment WHERE ?",
-      data,
-      (err, rows) => {
-        connection.release();
-
-        if (err) console.log(err);
-        console.log("delete entry-" + rows);
-        res.json(rows);
-      }
-    );
-  });
+app.post("/post/comment/delete", (req, res) => {
+  base(res,
+    "DELETE FROM comment WHERE id=?",
+    [req.body.cid]
+  )
 });
 
 //Listen to port 5000
