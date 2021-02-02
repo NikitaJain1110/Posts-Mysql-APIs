@@ -1,6 +1,6 @@
 const express= require("express");
 const Router = express.Router();
-const common = require("../utils/common");
+const common = require("../common/base");
 const bodyParser = require("body-parser");
 Router.use(bodyParser.urlencoded({ extended: false }));
 Router.use(bodyParser.json());
