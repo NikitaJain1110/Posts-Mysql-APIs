@@ -1,18 +1,21 @@
-const express = require("express");
+const express= require("express");
 const Router = express.Router();
-const common = require("../dbconnection/common");
+const common = require("../utils/common");
 const bodyParser = require("body-parser");
 Router.use(bodyParser.urlencoded({ extended: false }));
 Router.use(bodyParser.json());
+const xlsx       = require('xlsx');
 
 //Create Posts
 Router.post("/create",(req, res) => {
-  data={
-      content:req.body.content,
-      userid:req.body.userid
-  }
+var tempdata = xlsx.utils.sheet_to_json(xlsx.readFile("./Input/Data/data.xlsx").Sheets["Sheet1"])
+var data=tempdata[tempdata.length-1]
+  // data={
+  //     content:req.body.content,
+  //     userid:req.body.userid
+  // }
    common.base(res,
-      "INSERT INTO post SET ?",
+      "INSERT INTO excelpost SET ?",
       data
     )
   });

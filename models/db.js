@@ -27,4 +27,4 @@ const pool = mysql.createPool({
     });
   }
 
-  module.exports = {base}
+  module.exports = {base, pool}
